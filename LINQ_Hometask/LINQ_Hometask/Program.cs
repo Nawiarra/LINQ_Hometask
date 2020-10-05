@@ -15,7 +15,7 @@ namespace LINQ_Hometask
 
             var usersWithLongName = users.Where(x => (x.FirstName.Length + x.LastName.Length) > 12);
 
-            //2) Сделать выборку всех транзакций (в результате должен получится список из 1000 транзакций) 
+            //2) Сделать выборку всех транзакций (в результате должен получится список из 1000 транзакций)  
             var transactions = banks.SelectMany(x => x.Transactions).ToList();
 
             //3) Вывести Банк: и всех его пользователей (Имя + фамилия + количество транзакий в гривне) отсортированных по Фамилии по убиванию. в таком виде :
@@ -24,14 +24,64 @@ namespace LINQ_Hometask
             //   Игорь Сердюк 
             //   Николай Басков
 
+            var banksInfo = users.Join(banks,
+              user => user.Bank.Name,
+              bank => bank.Name,
+              (user, bank) => new { NameBank = bank.Name, FirstNameUser = user.FirstName, LastNameUser = user.LastName, TransactionsCount = user.Transactions.Where(y => y.Currency == Currency.UAH).Count()}).OrderBy(p => p.FirstNameUser).GroupBy(x => x.NameBank);
+
+
+            foreach(var bankInfo in banksInfo)
+            {
+                Console.WriteLine($"Bank name: {bankInfo.Key}");
+
+                foreach(var userinfo in bankInfo)
+                {
+                    Console.WriteLine($"User first name: {userinfo.FirstNameUser};\nuser last name: {userinfo.LastNameUser};\ntransactions count: {userinfo.TransactionsCount}\n");
+                }
+            }
+
             //4) Сделать выборку всех Пользователей типа Admin, у которых счет в банке, в котором больше всего транзакций
+
+            var mainBank = banks.Where(x => x.Transactions.Count == banks.Max(y => y.Transactions.Count));
+
+            var listOfAdminUsers = users
+                .Join(mainBank,
+                 user => user.Bank.Name,
+                 bank => bank.Name,
+                 (user, bank) => user
+                ).Where(x => x.Type == UserType.Admin);
+
 
             //5) Найти Пользователей(НЕ АДМИНОВ), которые произвели больше всего транзакций в определенной из валют (UAH,USD,EUR) 
             //то есть найти трёх пользователей: 1й который произвел больше всего транзакций в гривне, второй пользователь, который произвел больше всего транзакций в USD 
             //и третьего в EUR
 
+            var userWithmaxUAHTransCount = FindUserWithMaxCountOfCurrentTransactions(users, Currency.UAH);
+
+            var userWithmaxUSDTransCount = FindUserWithMaxCountOfCurrentTransactions(users, Currency.USD);
+
+            var userWithmaxEURTransCount = FindUserWithMaxCountOfCurrentTransactions(users, Currency.EUR);
+
             //6) Сделать выборку транзакций банка, у которого больше всего Pemium пользователей
 
+            var listOfAdminPemiumUsers = users
+                .Where(x => x.Type == UserType.Pemium)
+                .GroupBy(y => y.Bank)
+                .OrderBy(x => x.Count())
+                .FirstOrDefault()
+                .SelectMany(x=>x.Transactions)
+                .ToList();
+
+        }
+
+        public static User FindUserWithMaxCountOfCurrentTransactions(List <User> users, Currency param)
+        {
+            var nonAdminUsers = users.Where(x => x.Type != UserType.Admin);
+
+            var maxTransCount = nonAdminUsers.Max(x => x.Transactions.Where(y => y.Currency == param).Count());
+            User userWithmaxTransCount = nonAdminUsers.First(x => x.Transactions.Where(y => y.Currency == param).Count() == maxTransCount);
+
+            return userWithmaxTransCount;
         }
 
         public class User
